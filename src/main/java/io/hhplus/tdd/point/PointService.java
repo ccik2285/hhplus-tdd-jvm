@@ -16,7 +16,7 @@ public class PointService {
      * @param id
      * @return
      */
-    public long SearchRestPoints(long id) {
+    public long searchRestPoints(long id) {
         return userPointTable.selectById(id).point();
     }
 
@@ -25,7 +25,7 @@ public class PointService {
      * @param id
      * @return
      */
-    public PointHistory[] SearchPointhistory(long id) {
+    public PointHistory[] searchPointhistory(long id) {
         return pointHistoryTable.selectAllByUserId(id).toArray(new PointHistory[0]);
     }
 
@@ -34,9 +34,16 @@ public class PointService {
      * @param id
      * @param amount
      */
-     public void ChargePoints(long id, long amount) {
-         userPointTable.insertOrUpdate(id,SearchRestPoints(id) + amount);
+     public long chargePoints(long id, long amount) {
+
+         if(!isChargeable(id,amount)){
+             throw new IllegalStateException("이미 최대 포인트 입니다.");
+         }
+
+         userPointTable.insertOrUpdate(id,searchRestPoints(id) + amount);
          pointHistoryTable.insert(id,amount,TransactionType.CHARGE,System.currentTimeMillis());
+
+         return searchRestPoints(id);
      }
 
     /**
@@ -44,17 +51,24 @@ public class PointService {
      * @param id
      * @param amount
      */
-     public void UsePoints(long id, long amount) {
-         userPointTable.insertOrUpdate(id,SearchRestPoints(id) - amount);
+     public long usePoints(long id, long amount) {
+
+         if(!isAvailable(id,amount)){
+             throw new IllegalStateException("포인트가 부족합니다.");
+         }
+
+         userPointTable.insertOrUpdate(id,searchRestPoints(id) - amount);
          pointHistoryTable.insert(id,amount,TransactionType.USE,System.currentTimeMillis());
+
+         return searchRestPoints(id);
      }
 
-     public boolean IsAvailable(long id,long usage) {
-         return SearchRestPoints(id) >= usage;
+     public boolean isAvailable(long id,long usage) {
+         return searchRestPoints(id) >= usage;
      }
 
-     public boolean IsChargeable(long id,long amount) {
-         return SearchRestPoints(id) + amount <= MAX_POINT;
+     public boolean isChargeable(long id,long amount) {
+         return searchRestPoints(id) + amount <= MAX_POINT;
      }
 
 }

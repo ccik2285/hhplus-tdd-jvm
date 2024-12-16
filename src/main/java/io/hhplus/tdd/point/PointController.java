@@ -22,7 +22,7 @@ public class PointController {
     public UserPoint point(
             @PathVariable long id
     ) {
-        return new UserPoint(id, pointService.SearchRestPoints(id), System.currentTimeMillis());
+        return new UserPoint(id, pointService.searchRestPoints(id), System.currentTimeMillis());
     }
 
     /**
@@ -32,7 +32,7 @@ public class PointController {
     public List<PointHistory> history(
             @PathVariable long id
     ) {
-        return List.of(pointService.SearchPointhistory(id));
+        return List.of(pointService.searchPointhistory(id));
     }
 
     /**
@@ -43,12 +43,7 @@ public class PointController {
             @PathVariable long id,
             @RequestBody long amount
     ) {
-        if(!pointService.IsChargeable(id,amount)){
-            throw new IllegalStateException("이미 최대 포인트 입니다.");
-        }
-
-        pointService.ChargePoints(id,amount);
-        return new UserPoint(id, pointService.SearchRestPoints(id), System.currentTimeMillis());
+        return new UserPoint(id, pointService.chargePoints(id,amount), System.currentTimeMillis());
     }
 
     /**
@@ -59,11 +54,6 @@ public class PointController {
             @PathVariable long id,
             @RequestBody long amount
     ) {
-        if(!pointService.IsAvailable(id,amount)){
-            throw new IllegalStateException("포인트가 부족합니다.");
-        }
-
-        pointService.UsePoints(id,amount);
-        return new UserPoint(id, pointService.SearchRestPoints(id), System.currentTimeMillis());
+        return new UserPoint(id, pointService.usePoints(id,amount), System.currentTimeMillis());
     }
 }
