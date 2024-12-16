@@ -1,5 +1,7 @@
 package io.hhplus.tdd.point;
 
+import io.hhplus.tdd.database.PointHistoryTable;
+import io.hhplus.tdd.database.UserPointTable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +13,7 @@ import java.util.List;
 public class PointController {
 
     private static final Logger log = LoggerFactory.getLogger(PointController.class);
+    private PointService pointService;
 
     /**
      * TODO - 특정 유저의 포인트를 조회하는 기능을 작성해주세요.
@@ -19,7 +22,7 @@ public class PointController {
     public UserPoint point(
             @PathVariable long id
     ) {
-        return new UserPoint(0, 0, 0);
+        return new UserPoint(id, pointService.SearchRestPoints(id), System.currentTimeMillis());
     }
 
     /**
@@ -29,7 +32,7 @@ public class PointController {
     public List<PointHistory> history(
             @PathVariable long id
     ) {
-        return List.of();
+        return List.of(pointService.SearchPointhistory(id));
     }
 
     /**
@@ -40,7 +43,12 @@ public class PointController {
             @PathVariable long id,
             @RequestBody long amount
     ) {
-        return new UserPoint(0, 0, 0);
+        if(!pointService.IsChargeable(id,amount)){
+            throw new IllegalStateException("이미 최대 포인트 입니다.");
+        }
+
+        pointService.ChargePoints(id,amount);
+        return new UserPoint(id, pointService.SearchRestPoints(id), System.currentTimeMillis());
     }
 
     /**
@@ -51,6 +59,11 @@ public class PointController {
             @PathVariable long id,
             @RequestBody long amount
     ) {
-        return new UserPoint(0, 0, 0);
+        if(!pointService.IsAvailable(id,amount)){
+            throw new IllegalStateException("포인트가 부족합니다.");
+        }
+
+        pointService.UsePoints(id,amount);
+        return new UserPoint(id, pointService.SearchRestPoints(id), System.currentTimeMillis());
     }
 }
