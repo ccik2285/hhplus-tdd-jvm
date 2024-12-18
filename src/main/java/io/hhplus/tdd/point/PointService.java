@@ -4,11 +4,21 @@ import io.hhplus.tdd.database.PointHistoryTable;
 import io.hhplus.tdd.database.UserPointTable;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.ConcurrentHashMap;
+
 @Service
 public class PointService {
 
-    private PointHistoryTable pointHistoryTable;
-    private UserPointTable userPointTable;
+    private final PointHistoryTable pointHistoryTable;
+    private final UserPointTable userPointTable;
+
+    private final ConcurrentHashMap<Long, Object> userLocks = new ConcurrentHashMap<>();
+
+
+    public PointService(PointHistoryTable pointHistoryTable, UserPointTable userPointTable) {
+        this.pointHistoryTable = pointHistoryTable;
+        this.userPointTable = userPointTable;
+    }
     public long MAX_POINT = 10000L;
 
     /**
@@ -41,7 +51,7 @@ public class PointService {
              throw new IllegalStateException("이미 최대 포인트 입니다.");
          }
 
-         return updatePoint(id,amount,TransactionType.CHARGE,time);
+         return executeWithLock(id, () -> updatePoint(id, amount, TransactionType.CHARGE, time));
      }
 
     /**
@@ -56,10 +66,10 @@ public class PointService {
              throw new IllegalStateException("포인트가 부족합니다.");
          }
 
-        return updatePoint(id,-amount,TransactionType.USE,time);
+        return executeWithLock(id, () -> updatePoint(id, -amount, TransactionType.USE, time));
      }
 
-     public synchronized long updatePoint(long id,long amount,TransactionType type,long time) {
+     public long updatePoint(long id,long amount,TransactionType type,long time) {
          userPointTable.insertOrUpdate(id,searchRestPoints(id) + amount);
          pointHistoryTable.insert(id,amount,type,time);
 
@@ -73,5 +83,29 @@ public class PointService {
      public boolean isChargeable(long id,long amount) {
          return searchRestPoints(id) + amount <= MAX_POINT;
      }
+    /**
+     * 사용자별 락을 사용하여 동시성 제어
+     *
+     * @param id
+     * @param critical
+     * @return
+     */
+    private long executeWithLock(long id, CriticalOperation critical) {
+        Object lock = userLocks.computeIfAbsent(id, key -> new Object());
 
+        synchronized (lock) {
+            try {
+                return critical.execute();
+            } finally {
+                if (pointHistoryTable.selectAllByUserId(id).isEmpty()) {
+                    userLocks.remove(id);
+                }
+            }
+        }
+    }
+
+    @FunctionalInterface
+    private interface CriticalOperation {
+        long execute();
+    }
 }
