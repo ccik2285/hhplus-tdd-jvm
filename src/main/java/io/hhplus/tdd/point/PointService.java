@@ -21,49 +21,35 @@ public class PointService {
     }
     public long MAX_POINT = 10000L;
 
-    /**
-     * 포인트 조회 서비스
-     * @param id
-     * @return 현재 보유 금액
-     */
     public long searchRestPoints(long id) {
         return userPointTable.selectById(id).point();
     }
 
-    /**
-     * 포인트 이용내역 조회 서비스
-     * @param id
-     * @return 포인트 히스토리
-     */
     public PointHistory[] searchPointhistory(long id) {
         return pointHistoryTable.selectAllByUserId(id).toArray(new PointHistory[0]);
     }
 
-    /**
-     * 포인트 충전 서비스
-     * @param id
-     * @param amount
-     * @return 충전 후 남은 금액
-     */
      public long chargePoints(long id, long amount,long time) {
 
          if(!isChargeable(id,amount)){
              throw new IllegalStateException("이미 최대 포인트 입니다.");
          }
 
+         if(amount <= 0){
+             throw new IllegalStateException("0원은 충전할 수 없습니다.");
+         }
+
          return executeWithLock(id, () -> updatePoint(id, amount, TransactionType.CHARGE, time));
      }
 
-    /**
-     * 포인트 사용 서비스
-     * @param id
-     * @param amount
-     * @return 사용 후 남은 금액
-     */
      public long usePoints(long id, long amount,long time) {
 
          if(!isAvailable(id,amount)){
              throw new IllegalStateException("포인트가 부족합니다.");
+         }
+
+         if(amount <= 0){
+             throw new IllegalStateException("사용할 포인트 입력 필수");
          }
 
         return executeWithLock(id, () -> updatePoint(id, -amount, TransactionType.USE, time));
@@ -83,13 +69,7 @@ public class PointService {
      public boolean isChargeable(long id,long amount) {
          return searchRestPoints(id) + amount <= MAX_POINT;
      }
-    /**
-     * 사용자별 락을 사용하여 동시성 제어
-     *
-     * @param id
-     * @param critical
-     * @return
-     */
+
     private long executeWithLock(long id, CriticalOperation critical) {
         Object lock = userLocks.computeIfAbsent(id, key -> new Object());
 
